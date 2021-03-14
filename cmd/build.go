@@ -32,7 +32,12 @@ func buildKernel(cmd *cobra.Command, args []string) {
 		kb.Arch = arch
 	}
 
+	jobs, err := cmd.Flags().GetInt("jobs")
+	if err == nil {
+		kb.NumParallelJobs = jobs
+	}
+
 	if err := kb.Build(); err != nil {
-		log.Fatal()
+		log.Fatal(err)
 	}
 }

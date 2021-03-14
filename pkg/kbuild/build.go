@@ -1,21 +1,28 @@
 package kbuild
 
 import (
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
+
+	"github.com/go-git/go-git/v5"
 )
 
 type Kbuild struct {
 	Arch            string
 	ToolchainPath   string
 	ToolChainPrefix string
-	cross_compile   string
-	srcdir          string
-	buildpath       string
-	builddir        string
-	config          string
-	buildlog        string
+	NumParallelJobs int
+	NoPull          bool
+	CrossCompile    string
+
+	srcdir       string
+	buildpath    string
+	builddir     string
+	configfile   string
+	buildlogfile string
 }
 
 // CreateBuildDir ...
@@ -46,12 +53,70 @@ func (kb *Kbuild) mkconfig() error {
 
 func (kb *Kbuild) make() error {
 	bdirflag := fmt.Sprintf("O=%s", kb.builddir)
-	cmd := exec.Command("make", bdirflag)
+	cmd := exec.Command("make", bdirflag, fmt.Sprintf("--jobs=%d",
+		kb.NumParallelJobs))
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("ARCH=%s", kb.Arch),
+	)
+
+	log.Println(cmd.String())
+	return runCmd(cmd)
+}
+
+func (kb *Kbuild) clean() error {
+	bdirflag := fmt.Sprintf("O=%s", kb.builddir)
+	cmd := exec.Command("make", bdirflag, "distclean")
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("ARCH=%s", kb.Arch),
 	)
 
 	return runCmd(cmd)
+}
+
+type PullState int
+
+const (
+	WORKTREE_UPDATED PullState = iota
+	WORKTREE_UNCHANGED
+)
+
+// updateSrcTree ...
+func (kb *Kbuild) updateSrcTree() (PullState, error) {
+	if kb.NoPull {
+		return WORKTREE_UNCHANGED, nil
+	}
+
+	repo, err := git.PlainOpen(kb.srcdir)
+	if err != nil {
+		return WORKTREE_UNCHANGED, err
+	}
+	ref, err := repo.Head()
+	if err != nil {
+		return WORKTREE_UNCHANGED, err
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return WORKTREE_UNCHANGED, err
+	}
+
+	err = wt.Pull(&git.PullOptions{RemoteName: "origin"})
+	if err != nil {
+		if errors.Is(git.NoErrAlreadyUpToDate, err) {
+			return WORKTREE_UNCHANGED, nil
+		}
+		return WORKTREE_UNCHANGED, err
+	}
+
+	newref, err := repo.Head()
+	if err != nil {
+		return WORKTREE_UNCHANGED, err
+	}
+
+	if ref != newref {
+		return WORKTREE_UNCHANGED, nil
+	}
+	return WORKTREE_UNCHANGED, nil
 }
 
 // Build ...
@@ -71,8 +136,16 @@ func (kb *Kbuild) Build() error {
 		return err
 	}
 
-	// TODO: update source using git pull
-	// TODO: do a clean if pulled
+	state, err := kb.updateSrcTree()
+	if err != nil {
+		return err
+	}
+
+	// Lets do a clean build if we have pulled in fresh code
+	if state == WORKTREE_UPDATED {
+		kb.clean()
+	}
+
 	_, err = os.Stat(fmt.Sprintf("%s/.config", kb.builddir))
 	if err != nil {
 		if err := kb.mkconfig(); err != nil {
