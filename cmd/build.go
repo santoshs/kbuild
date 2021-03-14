@@ -27,6 +27,11 @@ func buildKernel(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
+	arch, err := cmd.Flags().GetString("arch")
+	if err == nil {
+		kb.Arch = arch
+	}
+
 	if err := kb.Build(); err != nil {
 		log.Fatal()
 	}

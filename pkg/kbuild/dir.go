@@ -27,7 +27,7 @@ func (kb *Kbuild) createBuildDir() (string, error) {
 		return "", err
 	}
 	branch := path.Base(h.Name().String())
-	builddir := fmt.Sprintf("%s.%s.%s", wd, branch, kb.arch)
+	builddir := fmt.Sprintf("%s.%s.%s", wd, branch, kb.Arch)
 
 	bdir := fmt.Sprintf("%s/%s", kb.buildpath, builddir)
 	if err := os.MkdirAll(bdir, 0755); err != nil {
