@@ -38,6 +38,8 @@ func NewKbuild(srcdir, buildpath string) (*Kbuild, error) {
 		return &kbuild, err
 	}
 
+	kbuild.Arch = GetHostArch()
+
 	return &kbuild, nil
 }
 
@@ -125,10 +127,6 @@ func (kb *Kbuild) Build() error {
 
 	if err = os.Chdir(kb.srcdir); err != nil {
 		return err
-	}
-
-	if kb.Arch == "" {
-		kb.Arch = GetHostArch()
 	}
 
 	kb.builddir, err = kb.createBuildDir()
