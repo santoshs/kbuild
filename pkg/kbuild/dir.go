@@ -36,7 +36,7 @@ func getbuilddir(srcdir, buildpath, arch string) (string, error) {
 }
 
 func (kb *Kbuild) createBuildDir() (string, error) {
-	bdir, err := getbuilddir(kb.srcdir, kb.buildpath, kb.Arch)
+	bdir, err := getbuilddir(kb.SrcDir, kb.BuildPath, kb.Arch)
 	if err != nil {
 		return "", err
 	}
@@ -49,7 +49,7 @@ func (kb *Kbuild) createBuildDir() (string, error) {
 }
 
 func (kb *Kbuild) GetBuildDir() string {
-	builddir, err := getbuilddir(kb.srcdir, kb.buildpath, kb.Arch)
+	builddir, err := getbuilddir(kb.SrcDir, kb.BuildPath, kb.Arch)
 	if err != nil {
 		return ""
 	}

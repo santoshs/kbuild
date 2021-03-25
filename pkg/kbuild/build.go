@@ -18,9 +18,9 @@ type Kbuild struct {
 	NoPull          bool
 	CrossCompile    string
 
-	srcdir       string
-	buildpath    string
-	builddir     string
+	SrcDir       string
+	BuildPath    string
+	BuildDir     string
 	configfile   string
 	buildlogfile string
 }
@@ -31,10 +31,10 @@ func NewKbuild(srcdir, buildpath string) (*Kbuild, error) {
 
 	kbuild := Kbuild{}
 
-	if kbuild.srcdir, err = expandHome(srcdir); err != nil {
+	if kbuild.SrcDir, err = expandHome(srcdir); err != nil {
 		return &kbuild, err
 	}
-	if kbuild.buildpath, err = expandHome(buildpath); err != nil {
+	if kbuild.BuildPath, err = expandHome(buildpath); err != nil {
 		return &kbuild, err
 	}
 
@@ -44,7 +44,7 @@ func NewKbuild(srcdir, buildpath string) (*Kbuild, error) {
 }
 
 func (kb *Kbuild) mkconfig() error {
-	bdirflag := fmt.Sprintf("O=%s", kb.builddir)
+	bdirflag := fmt.Sprintf("O=%s", kb.BuildDir)
 	cmd := exec.Command("make", bdirflag, "defconfig")
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("ARCH=%s", kb.Arch),
@@ -54,7 +54,7 @@ func (kb *Kbuild) mkconfig() error {
 }
 
 func (kb *Kbuild) make() error {
-	bdirflag := fmt.Sprintf("O=%s", kb.builddir)
+	bdirflag := fmt.Sprintf("O=%s", kb.BuildDir)
 	cmd := exec.Command("make", bdirflag, fmt.Sprintf("--jobs=%d",
 		kb.NumParallelJobs))
 	cmd.Env = append(os.Environ(),
@@ -66,7 +66,7 @@ func (kb *Kbuild) make() error {
 }
 
 func (kb *Kbuild) clean() error {
-	bdirflag := fmt.Sprintf("O=%s", kb.builddir)
+	bdirflag := fmt.Sprintf("O=%s", kb.BuildDir)
 	cmd := exec.Command("make", bdirflag, "distclean")
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("ARCH=%s", kb.Arch),
@@ -88,7 +88,7 @@ func (kb *Kbuild) updateSrcTree() (PullState, error) {
 		return WORKTREE_UNCHANGED, nil
 	}
 
-	repo, err := git.PlainOpen(kb.srcdir)
+	repo, err := git.PlainOpen(kb.SrcDir)
 	if err != nil {
 		return WORKTREE_UNCHANGED, err
 	}
@@ -125,11 +125,11 @@ func (kb *Kbuild) updateSrcTree() (PullState, error) {
 func (kb *Kbuild) Build() error {
 	var err error
 
-	if err = os.Chdir(kb.srcdir); err != nil {
+	if err = os.Chdir(kb.SrcDir); err != nil {
 		return err
 	}
 
-	kb.builddir, err = kb.createBuildDir()
+	kb.BuildDir, err = kb.createBuildDir()
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func (kb *Kbuild) Build() error {
 		kb.clean()
 	}
 
-	_, err = os.Stat(fmt.Sprintf("%s/.config", kb.builddir))
+	_, err = os.Stat(fmt.Sprintf("%s/.config", kb.BuildDir))
 	if err != nil {
 		if err := kb.mkconfig(); err != nil {
 			return err
