@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"log"
+	"os"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -21,14 +23,25 @@ func Execute() error {
 }
 
 func init() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	rootCmd.Flags().IntP("jobs", "j", runtime.NumCPU()/2,
 		"Number of jobs to run")
 	rootCmd.PersistentFlags().CountP("verbose", "v",
 		"Verbose output, the more the 'v's the more verbose")
 	rootCmd.PersistentFlags().StringP("arch", "a", kbuild.GetHostArch(),
 		"Target architecture")
+	rootCmd.PersistentFlags().StringP("buildpath", "p", "~/.cache/kbuild",
+		"Build path")
+	rootCmd.PersistentFlags().StringP("builddir", "b", "",
+		"Name of the build directory, cannot be a path")
+	rootCmd.PersistentFlags().StringP("srcdir", "s", cwd,
+		"Path to the source directory")
 
 	rootCmd.AddCommand(pathCmd)
-	pathCmd.Flags().BoolP("bzimage", "b", false, "Show bzimage path")
+	pathCmd.Flags().BoolP("bzimage", "z", false, "Show bzimage path")
 	pathCmd.Flags().BoolP("config", "c", false, "Show .config path")
 }

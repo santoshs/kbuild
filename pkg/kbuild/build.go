@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 )
@@ -21,11 +22,12 @@ type Kbuild struct {
 	SrcDir       string
 	BuildPath    string
 	BuildDir     string
+	fullBuildDir string
 	configfile   string
 	buildlogfile string
 }
 
-// CreateBuildDir ...
+// NewKbuild ...
 func NewKbuild(srcdir, buildpath string) (*Kbuild, error) {
 	var err error
 
@@ -44,7 +46,7 @@ func NewKbuild(srcdir, buildpath string) (*Kbuild, error) {
 }
 
 func (kb *Kbuild) mkconfig() error {
-	bdirflag := fmt.Sprintf("O=%s", kb.BuildDir)
+	bdirflag := fmt.Sprintf("O=%s", kb.fullBuildDir)
 	cmd := exec.Command("make", bdirflag, "defconfig")
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("ARCH=%s", kb.Arch),
@@ -53,10 +55,10 @@ func (kb *Kbuild) mkconfig() error {
 	return runCmd(cmd)
 }
 
-func (kb *Kbuild) make() error {
-	bdirflag := fmt.Sprintf("O=%s", kb.BuildDir)
+func (kb *Kbuild) make(args []string) error {
+	bdirflag := fmt.Sprintf("O=%s", kb.fullBuildDir)
 	cmd := exec.Command("make", bdirflag, fmt.Sprintf("--jobs=%d",
-		kb.NumParallelJobs))
+		kb.NumParallelJobs), strings.Join(args, " "))
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("ARCH=%s", kb.Arch),
 	)
@@ -66,7 +68,7 @@ func (kb *Kbuild) make() error {
 }
 
 func (kb *Kbuild) clean() error {
-	bdirflag := fmt.Sprintf("O=%s", kb.BuildDir)
+	bdirflag := fmt.Sprintf("O=%s", kb.fullBuildDir)
 	cmd := exec.Command("make", bdirflag, "distclean")
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("ARCH=%s", kb.Arch),
@@ -82,6 +84,16 @@ const (
 	WORKTREE_UNCHANGED
 )
 
+func getHeadHash(repo *git.Repository) (string, error) {
+	head, err := repo.Head()
+	if err != nil {
+		return "", err
+	}
+	ref := head.Hash().String()
+
+	return ref, nil
+}
+
 // updateSrcTree ...
 func (kb *Kbuild) updateSrcTree() (PullState, error) {
 	if kb.NoPull {
@@ -92,16 +104,28 @@ func (kb *Kbuild) updateSrcTree() (PullState, error) {
 	if err != nil {
 		return WORKTREE_UNCHANGED, err
 	}
-	ref, err := repo.Head()
-	if err != nil {
-		return WORKTREE_UNCHANGED, err
-	}
 
 	wt, err := repo.Worktree()
 	if err != nil {
 		return WORKTREE_UNCHANGED, err
 	}
 
+	ws, err := wt.Status()
+	if err != nil {
+		return WORKTREE_UNCHANGED, err
+	}
+
+	ref, err := getHeadHash(repo)
+	if err != nil {
+		return WORKTREE_UNCHANGED, err
+	}
+
+	if ws.IsClean() == false {
+		log.Println("Worktree not clean: not updating")
+		return WORKTREE_UNCHANGED, nil
+	}
+
+	log.Println("Updating worktree")
 	err = wt.Pull(&git.PullOptions{RemoteName: "origin"})
 	if err != nil {
 		if errors.Is(git.NoErrAlreadyUpToDate, err) {
@@ -110,7 +134,7 @@ func (kb *Kbuild) updateSrcTree() (PullState, error) {
 		return WORKTREE_UNCHANGED, err
 	}
 
-	newref, err := repo.Head()
+	newref, err := getHeadHash(repo)
 	if err != nil {
 		return WORKTREE_UNCHANGED, err
 	}
@@ -122,34 +146,39 @@ func (kb *Kbuild) updateSrcTree() (PullState, error) {
 }
 
 // Build ...
-func (kb *Kbuild) Build() error {
+func (kb *Kbuild) Build(args []string) error {
 	var err error
 
 	if err = os.Chdir(kb.SrcDir); err != nil {
 		return err
 	}
 
-	kb.BuildDir, err = kb.createBuildDir()
+	err = kb.createBuildDir()
 	if err != nil {
 		return err
 	}
 
 	state, err := kb.updateSrcTree()
 	if err != nil {
-		return err
+		log.Println(err)
 	}
 
 	// Lets do a clean build if we have pulled in fresh code
 	if state == WORKTREE_UPDATED {
-		kb.clean()
+		log.Println("Cleaning repository")
+		if err := kb.clean(); err != nil {
+			return err
+		}
 	}
 
-	_, err = os.Stat(fmt.Sprintf("%s/.config", kb.BuildDir))
+	_, err = os.Stat(fmt.Sprintf("%s/.config", kb.fullBuildDir))
 	if err != nil {
+		log.Println("Creating build config")
 		if err := kb.mkconfig(); err != nil {
 			return err
 		}
 	}
 
-	return kb.make()
+	log.Println("Building kernel")
+	return kb.make(args)
 }
