@@ -41,5 +41,30 @@ func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 		kb.BuildDir = dir
 	}
 
+	if _, err := cmd.Flags().GetBool("no-pull"); err == nil {
+		kb.NoPull = true
+	}
+
 	return kb, nil
+}
+
+func errFatal(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func errLog(err error) {
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func nbdMount(image, mountpoint string) error {
+	// os.Command("")
+	return nil
+}
+
+func nbdUmount(mountpoint string) error {
+	return nil
 }

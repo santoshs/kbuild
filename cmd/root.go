@@ -14,7 +14,7 @@ var rootCmd = &cobra.Command{
 	Use:   "kbuild",
 	Short: "Kernel build helper",
 	Long:  "",
-	Args:  cobra.MaximumNArgs(1),
+	Args:  cobra.ArbitraryArgs,
 	Run:   buildKernel,
 }
 
@@ -40,8 +40,9 @@ func init() {
 		"Name of the build directory, cannot be a path")
 	rootCmd.PersistentFlags().StringP("srcdir", "s", cwd,
 		"Path to the source directory")
+	rootCmd.Flags().Bool("no-pull", false,
+		"Do not update the source repository")
 
 	rootCmd.AddCommand(pathCmd)
-	pathCmd.Flags().BoolP("bzimage", "z", false, "Show bzimage path")
-	pathCmd.Flags().BoolP("config", "c", false, "Show .config path")
+	rootCmd.AddCommand(installCmd)
 }

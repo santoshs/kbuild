@@ -47,3 +47,8 @@ func showPath(cmd *cobra.Command, args []string) {
 
 	fmt.Println(dir)
 }
+
+func init() {
+	pathCmd.Flags().BoolP("bzimage", "z", false, "Show bzimage path")
+	pathCmd.Flags().BoolP("config", "c", false, "Show .config path")
+}

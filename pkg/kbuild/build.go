@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/go-git/go-git/v5"
 )
@@ -55,13 +54,14 @@ func (kb *Kbuild) mkconfig() error {
 	return runCmd(cmd)
 }
 
-func (kb *Kbuild) make(args []string) error {
+func (kb *Kbuild) make(args, env []string) error {
 	bdirflag := fmt.Sprintf("O=%s", kb.fullBuildDir)
 	cmd := exec.Command("make", bdirflag, fmt.Sprintf("--jobs=%d",
-		kb.NumParallelJobs), strings.Join(args, " "))
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("ARCH=%s", kb.Arch),
-	)
+		kb.NumParallelJobs))
+
+	cmd.Args = append(cmd.Args, args...)
+	cmd.Env = append(os.Environ(), env...)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("ARCH=%s", kb.Arch))
 
 	log.Println(cmd.String())
 	return runCmd(cmd)
@@ -180,5 +180,39 @@ func (kb *Kbuild) Build(args []string) error {
 	}
 
 	log.Println("Building kernel")
-	return kb.make(args)
+	return kb.make(args, nil)
+}
+
+func (kb *Kbuild) Install(path string, install_modules, install_kernel bool,
+	args []string) error {
+	var env []string
+
+	if err := os.Chdir(kb.SrcDir); err != nil {
+		return err
+	}
+
+	err := kb.createBuildDir()
+	if err != nil {
+		return err
+	}
+
+	if path != "" {
+		env = append(env, "PATH="+path)
+	}
+
+	if install_modules {
+		args = append(args, "modules_install")
+		if err := kb.make(args, env); err != nil {
+			return err
+		}
+	}
+
+	if install_kernel {
+		args = append(args, "install")
+		if err := kb.make(args, env); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

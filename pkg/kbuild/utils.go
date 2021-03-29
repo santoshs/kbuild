@@ -65,6 +65,8 @@ func runCmd(cmd *exec.Cmd) error {
 		return err
 	}
 
+	cmd.Stdin = os.Stdin
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
