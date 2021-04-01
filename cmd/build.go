@@ -15,7 +15,12 @@ func buildKernel(cmd *cobra.Command, args []string) {
 		log.Fatal(err)
 	}
 
-	if err := kb.Build(args); err != nil {
-		log.Fatal(err)
+	dry_run, err := envArgBool(cmd, "dry-run")
+	errFatal(err)
+	if dry_run {
+		return
 	}
+
+	err = kb.Build(args)
+	errFatal(err)
 }

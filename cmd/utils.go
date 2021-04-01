@@ -2,13 +2,18 @@ package cmd
 
 import (
 	"log"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/santoshs/kbuild/pkg/kbuild"
-	"github.com/spf13/cobra"
 )
 
 type BuildConf struct {
 	SrcPath      string `yaml:"srcdir"`
+	BuildDir     string `yaml:"builddir"`
 	BuildPath    string `yaml:"buildpath"`
 	WorktreePath string `yaml:"worktreepath"`
 	DefArch      string `yaml:"arch"`
@@ -25,25 +30,19 @@ func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 	src, _ := cmd.Flags().GetString("srcdir")
 
 	kb, err := kbuild.NewKbuild(src, buildpath)
-	if err != nil {
-		log.Fatal(err)
-	}
+	errFatal(err)
 
-	if arch, err := cmd.Flags().GetString("arch"); err == nil {
-		kb.Arch = arch
-	}
+	kb.Arch, err = envArgString(cmd, "arch")
+	errFatal(err)
 
-	if jobs, err := cmd.Flags().GetInt("jobs"); err == nil {
-		kb.NumParallelJobs = jobs
-	}
+	kb.NumParallelJobs, err = envArgInt(cmd, "jobs")
+	errFatal(err)
 
-	if dir, err := cmd.Flags().GetString("builddir"); err == nil {
-		kb.BuildDir = dir
-	}
+	kb.BuildDir, err = envArgString(cmd, "builddir")
+	errFatal(err)
 
-	if _, err := cmd.Flags().GetBool("no-pull"); err == nil {
-		kb.NoPull = true
-	}
+	kb.NoPull, err = envArgBool(cmd, "no-pull")
+	errFatal(err)
 
 	return kb, nil
 }
@@ -67,4 +66,47 @@ func nbdMount(image, mountpoint string) error {
 
 func nbdUmount(mountpoint string) error {
 	return nil
+}
+
+// For all the following functions, related to getting arguments from the
+// environment or the command line, first check the environment if we have a
+// default, because we should override command line defaults if an arg is set in
+// the environment
+
+func envArgString(cmd *cobra.Command, arg string) (string, error) {
+	var s string
+
+	s = os.Getenv("KBUILD_" + strings.ToUpper(arg))
+	if s != "" {
+		return s, nil
+	}
+
+	return cmd.Flags().GetString(arg)
+}
+
+func envArgInt(cmd *cobra.Command, arg string) (int, error) {
+	var s string
+
+	// first check the environment if we have a default, because we should
+	// override command line defaults if an arg is set in the environment
+	s = os.Getenv("KBUILD_" + strings.ToUpper(arg))
+	if s != "" {
+		return strconv.Atoi(s)
+	}
+
+	return cmd.Flags().GetInt(arg)
+}
+
+func envArgBool(cmd *cobra.Command, arg string) (bool, error) {
+	var s string
+
+	// first check the environment if we have a default, because we should
+	// override command line defaults if an arg is set in the environment
+	s = os.Getenv("KBUILD_" + strings.ToUpper(arg))
+	if s != "" {
+		log.Printf("Using %s from environment\n", arg)
+		return true, nil
+	}
+
+	return cmd.Flags().GetBool(arg)
 }

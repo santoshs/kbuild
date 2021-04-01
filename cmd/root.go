@@ -28,7 +28,7 @@ func init() {
 		log.Fatal(err)
 	}
 
-	rootCmd.Flags().IntP("jobs", "j", runtime.NumCPU()/2,
+	rootCmd.PersistentFlags().IntP("jobs", "j", runtime.NumCPU()/2,
 		"Number of jobs to run")
 	rootCmd.PersistentFlags().CountP("verbose", "v",
 		"Verbose output, the more the 'v's the more verbose")
@@ -37,11 +37,15 @@ func init() {
 	rootCmd.PersistentFlags().StringP("buildpath", "p", "~/.cache/kbuild",
 		"Build path")
 	rootCmd.PersistentFlags().StringP("builddir", "b", "",
-		"Name of the build directory, cannot be a path")
+		`Name of the build directory, cannot be a path. Can also be set
+ using KBUILD_BUILD_DIR environment variable`)
 	rootCmd.PersistentFlags().StringP("srcdir", "s", cwd,
 		"Path to the source directory")
-	rootCmd.Flags().Bool("no-pull", false,
+	rootCmd.PersistentFlags().Bool("no-pull", false,
 		"Do not update the source repository")
+	rootCmd.PersistentFlags().Bool("dry-run", false,
+		"For debugging; do not do anything")
+	rootCmd.Flags().MarkHidden("dry-run")
 
 	rootCmd.AddCommand(pathCmd)
 	rootCmd.AddCommand(installCmd)
