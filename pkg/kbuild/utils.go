@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"os/user"
@@ -88,10 +87,8 @@ func runCmd(cmd *exec.Cmd) error {
 
 	err = cmd.Wait()
 	if err != nil {
-		var e *exec.ExitError
-		if errors.As(err, &e) {
-			log.Println("Build failed with exit code", e.ExitCode())
-		}
+		return err
 	}
+
 	return nil
 }
