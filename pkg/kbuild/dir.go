@@ -5,30 +5,23 @@ import (
 	"os"
 	"path"
 	"strings"
-
-	"github.com/go-git/go-git/v5"
 )
 
-func getbuilddir(srcdir, buildpath, arch string) (string, error) {
+func (kb *Kbuild) getbuilddir() (string, error) {
 	var (
 		name string
-		wd   = path.Base(srcdir)
+		wd   = path.Base(kb.SrcDir)
 	)
-
-	r, err := git.PlainOpen(srcdir)
-	if err != nil {
-		return "", err
-	}
 
 	// There is a bug in go-git/v5, that if srcdir is a worktree then we
 	// don't get a reference to the current branch.
-	ref, err := r.Head()
+	ref, err := kb.repo.Head()
 	if err != nil {
 		return "", err
 	}
 
 	name = path.Base(ref.Name().String())
-	bdir := fmt.Sprintf("%s.%s.%s", wd, name, arch)
+	bdir := fmt.Sprintf("%s.%s.%s", wd, name, kb.Arch)
 
 	return bdir, nil
 }
@@ -45,7 +38,7 @@ func (kb *Kbuild) GetBuildDir() (string, error) {
 			return "", fmt.Errorf("Build directory is a path")
 		}
 	} else {
-		kb.BuildDir, err = getbuilddir(kb.SrcDir, kb.BuildPath, kb.Arch)
+		kb.BuildDir, err = kb.getbuilddir()
 		if err != nil {
 			return "", err
 		}

@@ -24,6 +24,9 @@ type Kbuild struct {
 	fullBuildDir string
 	configfile   string
 	buildlogfile string
+
+	repo *git.Repository
+	wt   *git.Worktree
 }
 
 // NewKbuild ...
@@ -31,6 +34,10 @@ func NewKbuild(srcdir, buildpath string) (*Kbuild, error) {
 	var err error
 
 	kbuild := Kbuild{}
+	opts := git.PlainOpenOptions{
+		// required to get the Branch() and HEAD() from linked worktrees
+		EnableDotGitCommonDir: true,
+	}
 
 	if kbuild.SrcDir, err = expandHome(srcdir); err != nil {
 		return &kbuild, err
@@ -40,6 +47,16 @@ func NewKbuild(srcdir, buildpath string) (*Kbuild, error) {
 	}
 
 	kbuild.Arch = GetHostArch()
+
+	kbuild.repo, err = git.PlainOpenWithOptions(kbuild.SrcDir, &opts)
+	if err != nil {
+		return &kbuild, err
+	}
+
+	kbuild.wt, err = kbuild.repo.Worktree()
+	if err != nil {
+		return &kbuild, err
+	}
 
 	return &kbuild, nil
 }
@@ -100,22 +117,12 @@ func (kb *Kbuild) updateSrcTree() (PullState, error) {
 		return WORKTREE_UNCHANGED, nil
 	}
 
-	repo, err := git.PlainOpen(kb.SrcDir)
+	ws, err := kb.wt.Status()
 	if err != nil {
 		return WORKTREE_UNCHANGED, err
 	}
 
-	wt, err := repo.Worktree()
-	if err != nil {
-		return WORKTREE_UNCHANGED, err
-	}
-
-	ws, err := wt.Status()
-	if err != nil {
-		return WORKTREE_UNCHANGED, err
-	}
-
-	ref, err := getHeadHash(repo)
+	ref, err := getHeadHash(kb.repo)
 	if err != nil {
 		return WORKTREE_UNCHANGED, err
 	}
@@ -126,7 +133,7 @@ func (kb *Kbuild) updateSrcTree() (PullState, error) {
 	}
 
 	log.Println("Updating worktree")
-	err = wt.Pull(&git.PullOptions{RemoteName: "origin"})
+	err = kb.wt.Pull(&git.PullOptions{RemoteName: "origin"})
 	if err != nil {
 		if errors.Is(git.NoErrAlreadyUpToDate, err) {
 			return WORKTREE_UNCHANGED, nil
@@ -134,7 +141,7 @@ func (kb *Kbuild) updateSrcTree() (PullState, error) {
 		return WORKTREE_UNCHANGED, err
 	}
 
-	newref, err := getHeadHash(repo)
+	newref, err := getHeadHash(kb.repo)
 	if err != nil {
 		return WORKTREE_UNCHANGED, err
 	}
