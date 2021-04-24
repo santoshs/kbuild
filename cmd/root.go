@@ -34,11 +34,11 @@ func init() {
 		"Verbose output, the more the 'v's the more verbose")
 	rootCmd.PersistentFlags().StringP("arch", "a", kbuild.GetHostArch(),
 		"Target architecture")
-	rootCmd.PersistentFlags().StringP("buildpath", "p", "~/.cache/kbuild",
+	rootCmd.PersistentFlags().StringP("buildpath", "b", "~/.cache/kbuild",
 		"Build path")
-	rootCmd.PersistentFlags().StringP("builddir", "b", "",
-		`Name of the build directory, cannot be a path. Can also be set
- using KBUILD_BUILD_DIR environment variable`)
+	rootCmd.PersistentFlags().StringP("builddir", "o", "",
+		`Name of the build directory, cannot be a path. Can also be
+set using KBUILD_BUILD_DIR environment variable`)
 	rootCmd.PersistentFlags().StringP("srcdir", "s", cwd,
 		"Path to the source directory")
 	rootCmd.PersistentFlags().Bool("pull", false,
