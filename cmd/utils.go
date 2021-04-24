@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -59,8 +60,20 @@ func loadConf(confFile string) (*KbuildConfig, error) {
 func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 	var err error
 
-	_, err = loadConf("")
+	kconf, err := loadConf("")
 	errFatal(err)
+
+	profile, err := cmd.Flags().GetString("profile")
+	errFatal(err)
+
+	if profile == "" {
+		profile = "default"
+		kconf.Profiles["default"] = &BuildConf{}
+	} else {
+		if _, ok := kconf.Profiles[profile]; !ok {
+			errFatal(fmt.Errorf("Profile %s not found", profile))
+		}
+	}
 
 	buildpath, _ := cmd.Flags().GetString("buildpath")
 	src, _ := cmd.Flags().GetString("srcdir")

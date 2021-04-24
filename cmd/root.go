@@ -45,6 +45,10 @@ set using KBUILD_BUILD_DIR environment variable`)
 		"Update the source repository")
 	rootCmd.PersistentFlags().Bool("dry-run", false,
 		"For debugging; do not do anything")
+	rootCmd.PersistentFlags().StringP("profile", "p", "",
+		`Use the specified profile from the config file. Individual
+config items can be overridden through the CLI arguments
+or environment variables`)
 	rootCmd.Flags().MarkHidden("dry-run")
 
 	rootCmd.AddCommand(pathCmd)
