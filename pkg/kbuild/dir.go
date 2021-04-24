@@ -21,7 +21,7 @@ func (kb *Kbuild) getbuilddir() (string, error) {
 	}
 
 	name = path.Base(ref.Name().String())
-	bdir := fmt.Sprintf("%s.%s.%s", wd, name, kb.Arch)
+	bdir := fmt.Sprintf("%s.%s.%s", wd, name, kb.GetArch())
 
 	return bdir, nil
 }

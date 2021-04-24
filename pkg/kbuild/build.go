@@ -11,12 +11,8 @@ import (
 )
 
 type Kbuild struct {
-	Arch            string
-	ToolchainPath   string
-	ToolChainPrefix string
 	NumParallelJobs int
 	Pull            bool
-	CrossCompile    string
 
 	SrcDir       string
 	BuildPath    string
@@ -25,8 +21,10 @@ type Kbuild struct {
 	configfile   string
 	buildlogfile string
 
+	arch string
 	repo *git.Repository
 	wt   *git.Worktree
+	env  map[string]string
 }
 
 // NewKbuild ...
@@ -46,7 +44,7 @@ func NewKbuild(srcdir, buildpath string) (*Kbuild, error) {
 		return &kbuild, err
 	}
 
-	kbuild.Arch = GetHostArch()
+	kbuild.arch = GetHostArch()
 
 	kbuild.repo, err = git.PlainOpenWithOptions(kbuild.SrcDir, &opts)
 	if err != nil {
@@ -61,6 +59,34 @@ func NewKbuild(srcdir, buildpath string) (*Kbuild, error) {
 	return &kbuild, nil
 }
 
+func (kb *Kbuild) SetEnv(variable, val string) {
+	if kb.env == nil {
+		kb.env = make(map[string]string)
+	}
+
+	kb.env[variable] = val
+}
+
+func (kb *Kbuild) SetArch(arch string) {
+	kb.arch = arch
+	kb.SetEnv("ARCH", arch)
+}
+
+func (kb *Kbuild) GetArch() string {
+	return kb.arch
+}
+
+func (kb *Kbuild) getenv() []string {
+	var env []string
+
+	env = os.Environ()
+	for v := range kb.env {
+		env = append(env, fmt.Sprintf("%s=%s", v, kb.env[v]))
+	}
+
+	return env
+}
+
 func (kb *Kbuild) mkconfig() error {
 	bdirflag := fmt.Sprintf("O=%s", kb.fullBuildDir)
 	cmd := exec.Command("make", bdirflag, "defconfig")
@@ -72,13 +98,12 @@ func (kb *Kbuild) mkconfig() error {
 }
 
 func (kb *Kbuild) make(args, env []string) error {
-	bdirflag := fmt.Sprintf("O=%s", kb.fullBuildDir)
-	cmd := exec.Command("make", bdirflag, fmt.Sprintf("--jobs=%d",
-		kb.NumParallelJobs))
+	cmd := exec.Command("make")
 
+	cmd.Args = append(cmd.Args, fmt.Sprintf("O=%s", kb.fullBuildDir))
+	cmd.Args = append(cmd.Args, fmt.Sprintf("--jobs=%d", kb.NumParallelJobs))
 	cmd.Args = append(cmd.Args, args...)
-	cmd.Env = append(os.Environ(), env...)
-	cmd.Env = append(cmd.Env, fmt.Sprintf("ARCH=%s", kb.Arch))
+	cmd.Env = append(kb.getenv(), env...)
 
 	log.Println(cmd.String())
 	return runCmd(cmd)

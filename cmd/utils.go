@@ -32,8 +32,8 @@ func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 	kb, err := kbuild.NewKbuild(src, buildpath)
 	errFatal(err)
 
-	kb.Arch, err = envArgString(cmd, "arch")
-	errFatal(err)
+	arch, _ := envArgString(cmd, "arch")
+	kb.SetArch(arch)
 
 	kb.NumParallelJobs, err = envArgInt(cmd, "jobs")
 	errFatal(err)

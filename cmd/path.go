@@ -32,7 +32,7 @@ func showPath(cmd *cobra.Command, args []string) {
 
 	if bz {
 		fmt.Println(fmt.Sprintf("%s/arch/%s/boot/bzImage",
-			dir, kb.Arch))
+			dir, kb.GetArch()))
 		return
 	}
 
