@@ -87,17 +87,7 @@ func (kb *Kbuild) getenv() []string {
 	return env
 }
 
-func (kb *Kbuild) mkconfig() error {
-	bdirflag := fmt.Sprintf("O=%s", kb.fullBuildDir)
-	cmd := exec.Command("make", bdirflag, "defconfig")
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("ARCH=%s", kb.Arch),
-	)
-
-	return runCmd(cmd)
-}
-
-func (kb *Kbuild) make(args, env []string) error {
+func (kb *Kbuild) build(args, env []string) error {
 	cmd := exec.Command("make")
 
 	cmd.Args = append(cmd.Args, fmt.Sprintf("O=%s", kb.fullBuildDir))
@@ -109,14 +99,14 @@ func (kb *Kbuild) make(args, env []string) error {
 	return runCmd(cmd)
 }
 
-func (kb *Kbuild) clean() error {
-	bdirflag := fmt.Sprintf("O=%s", kb.fullBuildDir)
-	cmd := exec.Command("make", bdirflag, "distclean")
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("ARCH=%s", kb.Arch),
-	)
+func (kb *Kbuild) mkconfig() error {
+	args := []string{"defconfig"}
+	return kb.build(args, nil)
+}
 
-	return runCmd(cmd)
+func (kb *Kbuild) clean() error {
+	args := []string{"distclean"}
+	return kb.build(args, nil)
 }
 
 type PullState int
@@ -212,7 +202,7 @@ func (kb *Kbuild) Build(args []string) error {
 	}
 
 	log.Println("Building kernel")
-	return kb.make(args, nil)
+	return kb.build(args, nil)
 }
 
 func (kb *Kbuild) Install(path string, install_modules, install_kernel bool,
@@ -234,14 +224,14 @@ func (kb *Kbuild) Install(path string, install_modules, install_kernel bool,
 
 	if install_modules {
 		args = append(args, "modules_install")
-		if err := kb.make(args, env); err != nil {
+		if err := kb.build(args, env); err != nil {
 			return err
 		}
 	}
 
 	if install_kernel {
 		args = append(args, "install")
-		if err := kb.make(args, env); err != nil {
+		if err := kb.build(args, env); err != nil {
 			return err
 		}
 	}
