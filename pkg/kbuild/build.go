@@ -15,7 +15,7 @@ type Kbuild struct {
 	ToolchainPath   string
 	ToolChainPrefix string
 	NumParallelJobs int
-	NoPull          bool
+	Pull            bool
 	CrossCompile    string
 
 	SrcDir       string
@@ -113,7 +113,7 @@ func getHeadHash(repo *git.Repository) (string, error) {
 
 // updateSrcTree ...
 func (kb *Kbuild) updateSrcTree() (PullState, error) {
-	if kb.NoPull {
+	if !kb.Pull {
 		return WORKTREE_UNCHANGED, nil
 	}
 

@@ -44,7 +44,7 @@ func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 	kb.BuildDir, err = envArgString(cmd, "builddir")
 	errFatal(err)
 
-	kb.NoPull, err = envArgBool(cmd, "no-pull")
+	kb.Pull, err = envArgBool(cmd, "pull")
 	errFatal(err)
 
 	return kb, nil

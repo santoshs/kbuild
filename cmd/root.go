@@ -41,8 +41,8 @@ func init() {
  using KBUILD_BUILD_DIR environment variable`)
 	rootCmd.PersistentFlags().StringP("srcdir", "s", cwd,
 		"Path to the source directory")
-	rootCmd.PersistentFlags().Bool("no-pull", false,
-		"Do not update the source repository")
+	rootCmd.PersistentFlags().Bool("pull", false,
+		"Update the source repository")
 	rootCmd.PersistentFlags().Bool("dry-run", false,
 		"For debugging; do not do anything")
 	rootCmd.Flags().MarkHidden("dry-run")
