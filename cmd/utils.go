@@ -1,30 +1,66 @@
 package cmd
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	"github.com/santoshs/kbuild/pkg/kbuild"
 )
 
 type BuildConf struct {
-	SrcPath      string `yaml:"srcdir"`
-	BuildDir     string `yaml:"builddir"`
-	BuildPath    string `yaml:"buildpath"`
-	WorktreePath string `yaml:"worktreepath"`
-	DefArch      string `yaml:"arch"`
-	ToolChain    string `yaml:"toolchain"`
-	CCPrefix     string `yaml:"ccprefix"`
+	SrcPath      string            `yaml:"srcdir"`
+	BuildDir     string            `yaml:"builddir"`
+	BuildPath    string            `yaml:"buildpath"`
+	Arch         string            `yaml:"arch"`
+	CC           string            `yaml:"cc"`
+	CrossCompile string            `yaml:"cross_compile"`
+	Pull         bool              `yaml:"pull"`
+	BaseConfig   string            `yaml:"baseconfig"`
+	Configs      []string          `yaml:"configs"`
+	Environment  map[string]string `yaml:"env"`
+}
+
+type KbuildConfig struct {
+	Common   *BuildConf            `yaml:"Common"`
+	Profiles map[string]*BuildConf `yaml:"Profiles"`
 }
 
 const BUILD_PATH = "~/.cache/kbuild"
 
+func loadConf(confFile string) (*KbuildConfig, error) {
+	usr, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+
+	if confFile == "" {
+		confFile = filepath.Join(usr.HomeDir, ".config/kbuild")
+	}
+
+	f, err := ioutil.ReadFile(confFile)
+	if err != nil {
+		return nil, err
+	}
+
+	kconf := KbuildConfig{}
+	err = yaml.Unmarshal(f, &kconf)
+
+	return &kconf, nil
+}
+
 func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 	var err error
+
+	_, err = loadConf("")
+	errFatal(err)
 
 	buildpath, _ := cmd.Flags().GetString("buildpath")
 	src, _ := cmd.Flags().GetString("srcdir")
