@@ -27,6 +27,7 @@ type BuildConf struct {
 	BaseConfig   string            `yaml:"baseconfig"`
 	Configs      []string          `yaml:"configs"`
 	Environment  map[string]string `yaml:"env"`
+	NumJobs      int               `yaml:"jobs"`
 }
 
 type KbuildConfig struct {
@@ -59,42 +60,48 @@ func loadConf(confFile string) (*KbuildConfig, error) {
 
 func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 	var err error
+	var profile *BuildConf
 
 	kconf, err := loadConf("")
 	errFatal(err)
 
-	profile, err := cmd.Flags().GetString("profile")
-	errFatal(err)
-
-	if profile == "" {
-		profile = "default"
-		kconf.Profiles["default"] = &BuildConf{}
-	} else {
-		if _, ok := kconf.Profiles[profile]; !ok {
-			errFatal(fmt.Errorf("Profile %s not found", profile))
-		}
+	pname, _ := getArg(cmd, "profile", "default").(string)
+	profile, ok := kconf.Profiles[pname]
+	if pname == "default" && !ok {
+		kconf.Profiles[pname] = &BuildConf{}
+		profile = kconf.Profiles[pname]
 	}
 
-	buildpath, _ := cmd.Flags().GetString("buildpath")
-	src, _ := cmd.Flags().GetString("srcdir")
+	if !ok {
+		fmt.Print("Available Profiles: [")
+		for k := range kconf.Profiles {
+			fmt.Print(k, ",")
+		}
+		fmt.Println("]")
+		errFatal(fmt.Errorf("Profile %s not found", pname))
+	}
 
-	kb, err := kbuild.NewKbuild(src, buildpath)
+	profile.BuildPath = getArg(cmd, "buildpath", profile.BuildPath).(string)
+
+	cwd, err := os.Getwd()
 	errFatal(err)
 
-	arch, _ := envArgString(cmd, "arch")
-	kb.SetArch(arch)
+	profile.SrcPath = getArg(cmd, "srcdir", cwd).(string)
+	profile.Arch = getArg(cmd, "arch", profile.Arch).(string)
 
-	kb.NumParallelJobs, err = envArgInt(cmd, "jobs")
+	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildPath)
+
+	kb.SetArch(profile.Arch)
+
+	kb.NumParallelJobs = getArg(cmd, "jobs", profile.NumJobs).(int)
 	errFatal(err)
 	if kb.NumParallelJobs < 1 {
 		kb.NumParallelJobs = 1
 	}
 
-	kb.BuildDir, err = envArgString(cmd, "builddir")
-	errFatal(err)
+	kb.BuildDir = getArg(cmd, "builddir", profile.BuildDir).(string)
 
-	kb.Pull, err = envArgBool(cmd, "pull")
-	errFatal(err)
+	kb.Pull = getArg(cmd, "pull", profile.Pull).(bool)
 
 	return kb, nil
 }
@@ -121,44 +128,50 @@ func nbdUmount(mountpoint string) error {
 }
 
 // For all the following functions, related to getting arguments from the
-// environment or the command line, first check the environment if we have a
-// default, because we should override command line defaults if an arg is set in
-// the environment
+// environment or the command line or the config file. The
+//
+// 1. Command line argument will override
+// 2. Environment variables, which will override
+// 3. Setting in the config file, if any.
 
-func envArgString(cmd *cobra.Command, arg string) (string, error) {
-	var s string
+func getArg(cmd *cobra.Command, arg string, defval interface{}) interface{} {
+	var val interface{}
+	var err error
+	hasEnv := false
 
-	s = os.Getenv("KBUILD_" + strings.ToUpper(arg))
-	if s != "" {
-		return s, nil
+	env := os.Getenv("KBUILD_" + strings.ToUpper(arg))
+	if env != "" {
+		hasEnv = true
 	}
 
-	return cmd.Flags().GetString(arg)
-}
+	switch defval.(type) {
+	case string:
+		val, err = cmd.Flags().GetString(arg)
+		if defval == "" {
+			defval = val
+		}
+		if hasEnv {
+			defval = env
+		}
+	case int:
+		val, err = cmd.Flags().GetInt(arg)
+		if defval == 0 {
+			defval = val
+		}
+		if hasEnv {
+			defval, err = strconv.Atoi(env)
+		}
 
-func envArgInt(cmd *cobra.Command, arg string) (int, error) {
-	var s string
-
-	// first check the environment if we have a default, because we should
-	// override command line defaults if an arg is set in the environment
-	s = os.Getenv("KBUILD_" + strings.ToUpper(arg))
-	if s != "" {
-		return strconv.Atoi(s)
+	case bool:
+		val, err = cmd.Flags().GetBool(arg)
+		if hasEnv {
+			defval = true
+		}
 	}
 
-	return cmd.Flags().GetInt(arg)
-}
-
-func envArgBool(cmd *cobra.Command, arg string) (bool, error) {
-	var s string
-
-	// first check the environment if we have a default, because we should
-	// override command line defaults if an arg is set in the environment
-	s = os.Getenv("KBUILD_" + strings.ToUpper(arg))
-	if s != "" {
-		log.Printf("Using %s from environment\n", arg)
-		return true, nil
+	if err != nil || cmd.Flags().Changed(arg) {
+		return val
 	}
 
-	return cmd.Flags().GetBool(arg)
+	return defval
 }
