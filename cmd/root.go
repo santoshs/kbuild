@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"os"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -21,6 +22,9 @@ func Execute() error {
 }
 
 func init() {
+	cwd, err := os.Getwd()
+	errFatal(err)
+
 	rootCmd.PersistentFlags().IntP("jobs", "j", runtime.NumCPU()/2,
 		"Number of jobs to run")
 	rootCmd.PersistentFlags().CountP("verbose", "v",
@@ -32,7 +36,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("builddir", "o", "",
 		`Name of the build directory, cannot be a path. Can also be
 set using KBUILD_BUILDDIR environment variable`)
-	rootCmd.PersistentFlags().StringP("srcdir", "s", "",
+	rootCmd.PersistentFlags().StringP("srcdir", "s", cwd,
 		"Path to the source directory, defaults to current directory")
 	rootCmd.PersistentFlags().Bool("pull", false,
 		"Update the source repository")

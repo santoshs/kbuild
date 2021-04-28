@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/santoshs/kbuild/pkg/kbuild"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,10 @@ func installKernel(cmd *cobra.Command, args []string) {
 	var install_kernel = true
 	install_path := ""
 
-	kb, err := getkbuild(cmd)
+	profile, err := getBuildConf(cmd)
+	errFatal(err)
+
+	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildPath)
 	errFatal(err)
 
 	image, err := cmd.Flags().GetString("image")

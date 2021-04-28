@@ -10,10 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-
-	"github.com/santoshs/kbuild/pkg/kbuild"
 )
 
 type BuildConf struct {
@@ -28,6 +27,9 @@ type BuildConf struct {
 	Configs      []string          `yaml:"configs"`
 	Environment  map[string]string `yaml:"env"`
 	NumJobs      int               `yaml:"jobs"`
+
+	repo *git.Repository
+	wt   *git.Worktree
 }
 
 type KbuildConfig struct {
@@ -58,7 +60,7 @@ func loadConf(confFile string) (*KbuildConfig, error) {
 	return &kconf, nil
 }
 
-func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
+func getBuildConf(cmd *cobra.Command) (*BuildConf, error) {
 	var err error
 	var profile *BuildConf
 
@@ -83,27 +85,19 @@ func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 
 	profile.BuildPath = getArg(cmd, "buildpath", profile.BuildPath).(string)
 
-	cwd, err := os.Getwd()
-	errFatal(err)
-
-	profile.SrcPath = getArg(cmd, "srcdir", cwd).(string)
+	profile.SrcPath = getArg(cmd, "srcdir", profile.SrcPath).(string)
 	profile.Arch = getArg(cmd, "arch", profile.Arch).(string)
 
-	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildPath)
-
-	kb.SetArch(profile.Arch)
-
-	kb.NumParallelJobs = getArg(cmd, "jobs", profile.NumJobs).(int)
-	errFatal(err)
-	if kb.NumParallelJobs < 1 {
-		kb.NumParallelJobs = 1
+	profile.NumJobs = getArg(cmd, "jobs", profile.NumJobs).(int)
+	if profile.NumJobs < 1 {
+		profile.NumJobs = 1
 	}
 
-	kb.BuildDir = getArg(cmd, "builddir", profile.BuildDir).(string)
+	profile.BuildDir = getArg(cmd, "builddir", profile.BuildDir).(string)
 
-	kb.Pull = getArg(cmd, "pull", profile.Pull).(bool)
+	profile.Pull = getArg(cmd, "pull", profile.Pull).(bool)
 
-	return kb, nil
+	return profile, nil
 }
 
 func errFatal(err error) {

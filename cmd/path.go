@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/santoshs/kbuild/pkg/kbuild"
 	"github.com/spf13/cobra"
 )
 
@@ -16,10 +17,12 @@ var pathCmd = &cobra.Command{
 
 // showPath ...
 func showPath(cmd *cobra.Command, args []string) {
-	kb, err := getkbuild(cmd)
-	if err != nil {
-		log.Fatal(err)
-	}
+	profile, err := getBuildConf(cmd)
+	errFatal(err)
+
+	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildPath)
+	errFatal(err)
+
 	dir, err := kb.GetBuildDir()
 	if err != nil {
 		log.Fatal(err)
