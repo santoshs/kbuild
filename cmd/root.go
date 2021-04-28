@@ -5,8 +5,6 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
-
-	"github.com/santoshs/kbuild/pkg/kbuild"
 )
 
 var rootCmd = &cobra.Command{
@@ -29,7 +27,7 @@ func init() {
 		"Number of jobs to run")
 	rootCmd.PersistentFlags().CountP("verbose", "v",
 		"Verbose output, the more the 'v's the more verbose")
-	rootCmd.PersistentFlags().StringP("arch", "a", kbuild.GetHostArch(),
+	rootCmd.PersistentFlags().StringP("arch", "a", GetHostArch(),
 		"Target architecture")
 	rootCmd.PersistentFlags().StringP("buildpath", "b", "~/.cache/kbuild",
 		"Build path")
