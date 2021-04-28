@@ -21,6 +21,9 @@ func buildKernel(cmd *cobra.Command, args []string) {
 	kb.BuildDir = profile.BuildDir
 	kb.Pull = profile.Pull
 
+	err = profile.setup()
+	errFatal(err)
+
 	err = kb.Build(args)
 	errFatal(err)
 }

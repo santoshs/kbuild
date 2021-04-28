@@ -10,32 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
-
-type BuildConf struct {
-	SrcPath      string            `yaml:"srcdir"`
-	BuildDir     string            `yaml:"builddir"`
-	BuildPath    string            `yaml:"buildpath"`
-	Arch         string            `yaml:"arch"`
-	CC           string            `yaml:"cc"`
-	CrossCompile string            `yaml:"cross_compile"`
-	Pull         bool              `yaml:"pull"`
-	BaseConfig   string            `yaml:"baseconfig"`
-	Configs      []string          `yaml:"configs"`
-	Environment  map[string]string `yaml:"env"`
-	NumJobs      int               `yaml:"jobs"`
-
-	repo *git.Repository
-	wt   *git.Worktree
-}
-
-type KbuildConfig struct {
-	Common   *BuildConf            `yaml:"Common"`
-	Profiles map[string]*BuildConf `yaml:"Profiles"`
-}
 
 const BUILD_PATH = "~/.cache/kbuild"
 
@@ -60,9 +37,9 @@ func loadConf(confFile string) (*KbuildConfig, error) {
 	return &kconf, nil
 }
 
-func getBuildConf(cmd *cobra.Command) (*BuildConf, error) {
+func getBuildConf(cmd *cobra.Command) (*Profile, error) {
 	var err error
-	var profile *BuildConf
+	var profile *Profile
 
 	kconf, err := loadConf("")
 	errFatal(err)
@@ -70,7 +47,7 @@ func getBuildConf(cmd *cobra.Command) (*BuildConf, error) {
 	pname, _ := getArg(cmd, "profile", "default").(string)
 	profile, ok := kconf.Profiles[pname]
 	if pname == "default" && !ok {
-		kconf.Profiles[pname] = &BuildConf{}
+		kconf.Profiles[pname] = &Profile{}
 		profile = kconf.Profiles[pname]
 	}
 
