@@ -70,9 +70,8 @@ func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 	if pname == "default" && !ok {
 		kconf.Profiles[pname] = &BuildConf{}
 		profile = kconf.Profiles[pname]
-	}
-
-	if !ok {
+		ok = true
+	} else if !ok {
 		fmt.Print("Available Profiles: [")
 		for k := range kconf.Profiles {
 			fmt.Print(k, ",")
