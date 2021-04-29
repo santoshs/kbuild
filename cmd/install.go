@@ -25,7 +25,7 @@ func installKernel(cmd *cobra.Command, args []string) {
 	profile, err := getBuildConf(cmd)
 	errFatal(err)
 
-	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildPath)
+	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildDir)
 	errFatal(err)
 
 	image, err := cmd.Flags().GetString("image")

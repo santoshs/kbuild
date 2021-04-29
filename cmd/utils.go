@@ -1,14 +1,19 @@
 package cmd
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -60,9 +65,12 @@ func getBuildConf(cmd *cobra.Command) (*Profile, error) {
 		errFatal(fmt.Errorf("Profile %s not found", pname))
 	}
 
-	profile.BuildPath = getArg(cmd, "buildpath", profile.BuildPath).(string)
+	profile.name = pname
 
 	profile.SrcPath = getArg(cmd, "srcdir", profile.SrcPath).(string)
+	profile.SrcPath, err = expandHome(profile.SrcPath)
+	errFatal(err)
+
 	profile.Arch = getArg(cmd, "arch", profile.Arch).(string)
 
 	profile.NumJobs = getArg(cmd, "jobs", profile.NumJobs).(int)
@@ -71,6 +79,10 @@ func getBuildConf(cmd *cobra.Command) (*Profile, error) {
 	}
 
 	profile.BuildDir = getArg(cmd, "builddir", profile.BuildDir).(string)
+	if profile.BuildDir != "" {
+		profile.BuildDir, err = expandHome(profile.BuildDir)
+		errFatal(err)
+	}
 
 	profile.Pull = getArg(cmd, "pull", profile.Pull).(bool)
 
@@ -172,4 +184,65 @@ func expandHome(path string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(usr.HomeDir, path[1:]), nil
+}
+
+func pipetoStdout(p io.ReadCloser, c io.Writer) error {
+	buf := bufio.NewReader(p)
+	for {
+		line, err := buf.ReadBytes('\n')
+		if err != nil {
+			if errors.Is(io.EOF, err) {
+				err = nil
+			}
+			return err
+		}
+		c.Write([]byte(line))
+	}
+}
+
+func runCmd(cmdname string, args, env []string) error {
+	cmd := exec.Command(cmdname)
+
+	cmd.Args = append(cmd.Args, args...)
+	cmd.Env = append(cmd.Env, env...)
+
+	log.Println(cmd.String())
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	ch := make(chan string, 10)
+	defer close(ch)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		pipetoStdout(stdout, os.Stdout)
+		pipetoStdout(stderr, os.Stdout)
+		wg.Done()
+
+	}()
+
+	wg.Wait()
+
+	err = cmd.Wait()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

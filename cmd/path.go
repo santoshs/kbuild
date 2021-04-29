@@ -20,7 +20,8 @@ func showPath(cmd *cobra.Command, args []string) {
 	profile, err := getBuildConf(cmd)
 	errFatal(err)
 
-	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildPath)
+	profile.Setup()
+	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildDir)
 	errFatal(err)
 
 	dir, err := kb.GetBuildDir()

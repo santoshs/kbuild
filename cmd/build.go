@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
+	"os"
 
-	"github.com/santoshs/kbuild/pkg/kbuild"
+	"github.com/spf13/cobra"
 )
 
 // buildKernel sets up the environment, creates the output directory and builds
@@ -14,16 +14,12 @@ func buildKernel(cmd *cobra.Command, args []string) {
 	profile, err := getBuildConf(cmd)
 	errFatal(err)
 
-	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildPath)
-
-	kb.SetArch(profile.Arch)
-	kb.NumParallelJobs = profile.NumJobs
-	kb.BuildDir = profile.BuildDir
-	kb.Pull = profile.Pull
-
-	err = profile.setup()
+	err = profile.Setup()
 	errFatal(err)
 
-	err = kb.Build(args)
+	err = os.MkdirAll(profile.BuildDir, 0755)
+	errFatal(err)
+
+	err = profile.Config()
 	errFatal(err)
 }

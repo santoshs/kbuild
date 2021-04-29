@@ -29,11 +29,9 @@ func init() {
 		"Verbose output, the more the 'v's the more verbose")
 	rootCmd.PersistentFlags().StringP("arch", "a", GetHostArch(),
 		"Target architecture")
-	rootCmd.PersistentFlags().StringP("buildpath", "b", "~/.cache/kbuild",
-		"Build path")
 	rootCmd.PersistentFlags().StringP("builddir", "o", "",
-		`Name of the build directory, cannot be a path. Can also be
-set using KBUILD_BUILDDIR environment variable`)
+		`Name of the build directory. Can also be set using
+ KBUILD_BUILDDIR environment variable. (default: ~/.cache/kbuild/srcdir.branch.arch)`)
 	rootCmd.PersistentFlags().StringP("srcdir", "s", cwd,
 		"Path to the source directory, defaults to current directory")
 	rootCmd.PersistentFlags().Bool("pull", false,
