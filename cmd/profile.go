@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/go-git/go-git/v5"
 )
@@ -18,6 +17,7 @@ type Profile struct {
 	Pull         bool              `yaml:"pull"`
 	BaseConfig   string            `yaml:"baseconfig"`
 	Configs      []string          `yaml:"configs"`
+	Modules      []string          `yaml:"module_paths"`
 	Environment  map[string]string `yaml:"env"`
 	NumJobs      int               `yaml:"jobs"`
 
@@ -120,25 +120,75 @@ func (p *Profile) Config() error {
 	return nil
 }
 
+func (p *Profile) getArgs() []string {
+	// Short options with arguments after a space will be treated as a
+	// separate argument, so use long options with arguments after '='.
+	return []string{
+		fmt.Sprintf("--jobs=%d", p.NumJobs),
+	}
+}
+
 func (p *Profile) mkConfig() error {
 	if p.BaseConfig == "" {
 		p.BaseConfig = "defconfig"
 	}
 
-	args := []string{fmt.Sprintf("O=%s", p.BuildDir), p.BaseConfig}
+	args := []string{p.BaseConfig}
+	args = append(args, p.getArgs()...)
 
 	return runCmd("make", args, p.getenv())
 }
 
 func (p *Profile) mergeConfig() error {
-	configs := strings.Join(p.Configs, " ")
-	if configs == "" {
+	var configs []string
+
+	if len(p.Configs) == 0 {
 		return nil
+	}
+
+	for _, c := range p.Configs {
+		cp, err := expandHome(c)
+		if err != nil {
+			errLog(err)
+			continue
+		}
+		configs = append(configs, cp)
 	}
 
 	mergecmd := fmt.Sprintf("%s/scripts/kconfig/merge_config.sh", p.SrcPath)
 
-	args := []string{"-m", configs, fmt.Sprintf("-O=%s", p.BuildDir)}
+	args := []string{"-m", fmt.Sprintf("%s/.config", p.BuildDir)}
+	args = append(args, configs...)
+	env := p.getenv()
+	env = append(env, fmt.Sprintf("KCONFIG_CONFIG=%s/.config", p.BuildDir))
 
-	return runCmd(mergecmd, args, p.getenv())
+	return runCmd(mergecmd, args, env)
+}
+
+func (p *Profile) build(build_args []string) error {
+	args := []string{"--append", "--", "make"}
+
+	args = append(args, p.getArgs()...)
+	args = append(args, build_args...)
+
+	if err := runCmd("bear", args, p.getenv()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Profile) Build() error {
+	if err := p.build([]string{}); err != nil {
+		return err
+	}
+
+	for _, m := range p.Modules {
+		if err := p.build([]string{
+			fmt.Sprintf("M=%s", m), "modules"}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

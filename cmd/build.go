@@ -22,4 +22,7 @@ func buildKernel(cmd *cobra.Command, args []string) {
 
 	err = profile.Config()
 	errFatal(err)
+
+	err = profile.Build()
+	errFatal(err)
 }
