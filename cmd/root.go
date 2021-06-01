@@ -43,6 +43,7 @@ func init() {
 config items can be overridden through the CLI arguments
 or environment variables`)
 	rootCmd.Flags().MarkHidden("dry-run")
+	rootCmd.Flags().BoolP("skip-config", "S", false, "Do not make config")
 
 	rootCmd.AddCommand(pathCmd)
 	rootCmd.AddCommand(installCmd)

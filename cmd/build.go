@@ -27,8 +27,11 @@ func buildKernel(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	err = profile.Config()
-	errFatal(err)
+	if skipconfig, err := cmd.Flags().GetBool("skip-config"); err != nil {
+		errFatal(err)
+	} else if !skipconfig {
+		errFatal(profile.Config())
+	}
 
 	errFatal(profile.Build(args))
 	for _, m := range profile.Modules {
