@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -20,9 +21,20 @@ func buildKernel(cmd *cobra.Command, args []string) {
 	err = os.MkdirAll(profile.BuildDir, 0755)
 	errFatal(err)
 
+	// If the user provides a build command explicitly only execute that
+	if len(args) > 0 {
+		errFatal(profile.Build(args))
+		return
+	}
+
 	err = profile.Config()
 	errFatal(err)
 
-	err = profile.Build()
-	errFatal(err)
+	errFatal(profile.Build(args))
+	for _, m := range profile.Modules {
+		if err := profile.Build([]string{
+			fmt.Sprintf("M=%s", m), "modules"}); err != nil {
+			errFatal(err)
+		}
+	}
 }

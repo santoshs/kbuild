@@ -162,10 +162,15 @@ func (p *Profile) mergeConfig() error {
 	env := p.getenv()
 	env = append(env, fmt.Sprintf("KCONFIG_CONFIG=%s/.config", p.BuildDir))
 
-	return runCmd(mergecmd, args, env)
+	if err := runCmd(mergecmd, args, env); err != nil {
+		return err
+	}
+
+	// Don't want the build to prompt user for default values again
+	return runCmd("make", []string{"olddefconfig"}, env)
 }
 
-func (p *Profile) build(build_args []string) error {
+func (p *Profile) Build(build_args []string) error {
 	args := []string{"--append", "--", "make"}
 
 	args = append(args, p.getArgs()...)
@@ -173,21 +178,6 @@ func (p *Profile) build(build_args []string) error {
 
 	if err := runCmd("bear", args, p.getenv()); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (p *Profile) Build() error {
-	if err := p.build([]string{}); err != nil {
-		return err
-	}
-
-	for _, m := range p.Modules {
-		if err := p.build([]string{
-			fmt.Sprintf("M=%s", m), "modules"}); err != nil {
-			return err
-		}
 	}
 
 	return nil
