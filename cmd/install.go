@@ -1,11 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-
-	"github.com/santoshs/kbuild/pkg/kbuild"
 	"github.com/spf13/cobra"
 )
 
@@ -19,48 +14,38 @@ var installCmd = &cobra.Command{
 // installKernel ...
 func installKernel(cmd *cobra.Command, args []string) {
 	var err error
-	var install_kernel = true
-	install_path := ""
 
 	profile, err := getBuildConf(cmd)
 	errFatal(err)
+	profile.Setup()
 
-	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildDir)
+	ipath, err := cmd.Flags().GetString("install-path")
 	errFatal(err)
+	if ipath != "" {
+		profile.Environment["INSTALL_PATH"] = ipath
+	}
 
-	image, err := cmd.Flags().GetString("image")
+	mpath, err := cmd.Flags().GetString("install-mod-path")
 	errFatal(err)
+	if mpath != "" {
+		profile.Environment["INSTALL_MOD_PATH"] = mpath
+	}
 
-	if image != "" {
-		if s, err := os.Stat(image); err == nil {
-			if s.IsDir() {
-				errFatal(fmt.Errorf("Image cannot be a directory\n"))
-			}
-		} else {
-			errFatal(err)
-		}
-
-		// create a temporary mount point
-		mp, err := ioutil.TempDir("", "kbuild")
+	errFatal(profile.Build([]string{"modules_install"}))
+	if m, err := cmd.Flags().GetBool("modules-only"); err != nil {
 		errFatal(err)
-
-		errFatal(nbdMount(image, mp))
-		defer nbdUmount(mp)
-
-		install_path = mp
+	} else if m {
+		return
 	}
 
-	if _, err = cmd.Flags().GetBool("modules-only"); err != nil {
-		install_kernel = false
-	}
-
-	err = kb.Install(install_path, true, install_kernel, args)
-	errFatal(err)
+	errFatal(profile.Build([]string{"install"}))
 }
 
 func init() {
-	installCmd.Flags().StringP("image", "q", "",
-		"Install in the given qemu image")
+	installCmd.Flags().StringP("install-path", "i", "",
+		"Install in the given path")
+	installCmd.Flags().StringP("install-mod-path", "m", "",
+		"Install modules in the given path")
 	installCmd.Flags().BoolP("modules-only", "M", false,
 		"install only modules")
 }

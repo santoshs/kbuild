@@ -101,15 +101,6 @@ func errLog(err error) {
 	}
 }
 
-func nbdMount(image, mountpoint string) error {
-	// os.Command("")
-	return nil
-}
-
-func nbdUmount(mountpoint string) error {
-	return nil
-}
-
 // For all the following functions, related to getting arguments from the
 // environment or the command line or the config file. The
 //
