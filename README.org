@@ -1,0 +1,81 @@
+* kbuild
+  This utility helps to build the linux kernel.
+
+** Usage
+
+   #+begin_example
+     Usage:
+       kbuild [flags]
+       kbuild [command]
+     
+     Available Commands:
+       help        Help about any command
+       install     Install kernel
+       path        Show path of different build artefacts
+     
+     Flags:
+       -a, --arch string       Target architecture (default "x86_64")
+       -o, --builddir string   Name of the build directory. Can also be set using
+                                KBUILD_BUILDDIR environment variable. (default: ~/.cache/kbuild/srcdir.branch.arch)
+           --dry-run           For debugging; do not do anything
+       -h, --help              help for kbuild
+       -j, --jobs int          Number of jobs to run (default 12)
+       -p, --profile string    Use the specified profile from the config file. Individual
+                               config items can be overridden through the CLI arguments
+                               or environment variables
+           --pull              Update the source repository
+       -s, --srcdir string     Path to the source directory, defaults to current directory (default "/home/santosh/dev/kernels/config_fragments")
+       -v, --verbose count     Verbose output, the more the 'v's the more verbose
+     
+     Use "kbuild [command] --help" for more information about a command.
+   #+end_example
+
+** Profiles
+   Configure and build based on a profile. The profile definitions should be
+   provided in file =~/.config/kbuild=.
+   #+begin_src yaml
+     Profiles:
+       rust:
+         baseconfig: defconfig
+         configs: [/path/to/config/fragment/rust.cfg]
+     
+       nvdimm:
+         baseconfig: defconfig
+         configs: [/path/to/config/fragment/nvdimm_test.cfg]
+         modules_paths:
+           - tools/testing/nvdimm
+         jobs: 4
+     
+       nvdimm-ppc:
+         baseconfig: pseries_le_defconfig
+         arch: powerpc
+         jobs: 4
+         configs: [/path/to/config/fragment/debug.cfg]
+   #+end_src
+
+   
+** Examples
+
+   Build the source tree in the current directory, with config =defconfig=, in
+   build directory constructed as SRCDIR.BRANCH.ARCH
+   : kbuild
+
+   Build the source tree in the current directory, with config =defconfig=, in
+   the given build directory
+   : kbuild -o ~/tmp/build
+
+   By explicitly providing a source tree and a build path
+
+   : kbuild -o ~/tmp/build -s ~/src/linux
+
+   or build for a different architecture (cross compile)
+
+   : kbuild -a powerpc
+
+   or build by giving a profile name (which is defined in =~/.config/kbuild=)
+
+   : kbuild -p rust
+
+   Can also override some options provided in the profile
+
+   : kbuild -p nvdimm -j 12

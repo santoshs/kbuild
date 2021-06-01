@@ -16,39 +16,38 @@ var pathCmd = &cobra.Command{
 
 // showPath ...
 func showPath(cmd *cobra.Command, args []string) {
-	kb, err := getkbuild(cmd)
-	if err != nil {
-		log.Fatal(err)
-	}
-	dir, err := kb.GetBuildDir()
-	if err != nil {
-		log.Fatal(err)
-	}
+	profile, err := getBuildConf(cmd)
+	errFatal(err)
 
-	bz, err := cmd.Flags().GetBool("bzimage")
-	if err != nil {
-		log.Fatal(err)
-	}
+	profile.Setup()
 
-	if bz {
+	if bz, err := cmd.Flags().GetBool("bzimage"); err != nil {
+		log.Fatal(err)
+	} else if bz {
 		fmt.Println(fmt.Sprintf("%s/arch/%s/boot/bzImage",
-			dir, kb.GetArch()))
+			profile.BuildDir, profile.Arch))
 		return
 	}
 
-	c, err := cmd.Flags().GetBool("config")
-	if err != nil {
+	if c, err := cmd.Flags().GetBool("config"); err != nil {
 		log.Fatal(err)
-	}
-	if c {
-		fmt.Println(fmt.Sprintf("%s/.config", dir))
+	} else if c {
+		fmt.Println(fmt.Sprintf("%s/.config", profile.BuildDir))
 		return
 	}
 
-	fmt.Println(dir)
+	if v, err := cmd.Flags().GetBool("vmlinux"); err != nil {
+		log.Fatal(err)
+	} else if v {
+		fmt.Println(fmt.Sprintf("%s/vmlinux", profile.BuildDir))
+		return
+	}
+
+	fmt.Println(profile.BuildDir)
 }
 
 func init() {
 	pathCmd.Flags().BoolP("bzimage", "z", false, "Show bzimage path")
 	pathCmd.Flags().BoolP("config", "c", false, "Show .config path")
+	pathCmd.Flags().BoolP("vmlinux", "l", false, "Show vmlinux path")
 }

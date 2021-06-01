@@ -1,20 +1,43 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 )
 
-// kernelBuild ...
+// buildKernel sets up the environment, creates the output directory and builds
+// the kernel.
 func buildKernel(cmd *cobra.Command, args []string) {
 	var err error
 
-	kb, err := getkbuild(cmd)
+	profile, err := getBuildConf(cmd)
 	errFatal(err)
 
-	if getArg(cmd, "dry-run", false).(bool) {
+	err = profile.Setup()
+	errFatal(err)
+
+	err = os.MkdirAll(profile.BuildDir, 0755)
+	errFatal(err)
+
+	// If the user provides a build command explicitly only execute that
+	if len(args) > 0 {
+		errFatal(profile.Build(args))
 		return
 	}
 
-	err = kb.Build(args)
-	errFatal(err)
+	if skipconfig, err := cmd.Flags().GetBool("skip-config"); err != nil {
+		errFatal(err)
+	} else if !skipconfig {
+		errFatal(profile.Config())
+	}
+
+	errFatal(profile.Build(args))
+	for _, m := range profile.Modules {
+		if err := profile.Build([]string{
+			fmt.Sprintf("M=%s", m), "modules"}); err != nil {
+			errFatal(err)
+		}
+	}
 }

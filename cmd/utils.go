@@ -1,39 +1,24 @@
 package cmd
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-
-	"github.com/santoshs/kbuild/pkg/kbuild"
 )
-
-type BuildConf struct {
-	SrcPath      string            `yaml:"srcdir"`
-	BuildDir     string            `yaml:"builddir"`
-	BuildPath    string            `yaml:"buildpath"`
-	Arch         string            `yaml:"arch"`
-	CC           string            `yaml:"cc"`
-	CrossCompile string            `yaml:"cross_compile"`
-	Pull         bool              `yaml:"pull"`
-	BaseConfig   string            `yaml:"baseconfig"`
-	Configs      []string          `yaml:"configs"`
-	Environment  map[string]string `yaml:"env"`
-	NumJobs      int               `yaml:"jobs"`
-}
-
-type KbuildConfig struct {
-	Common   *BuildConf            `yaml:"Common"`
-	Profiles map[string]*BuildConf `yaml:"Profiles"`
-}
 
 const BUILD_PATH = "~/.cache/kbuild"
 
@@ -58,9 +43,9 @@ func loadConf(confFile string) (*KbuildConfig, error) {
 	return &kconf, nil
 }
 
-func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
+func getBuildConf(cmd *cobra.Command) (*Profile, error) {
 	var err error
-	var profile *BuildConf
+	var profile *Profile
 
 	kconf, err := loadConf("")
 	errFatal(err)
@@ -68,7 +53,7 @@ func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 	pname, _ := getArg(cmd, "profile", "default").(string)
 	profile, ok := kconf.Profiles[pname]
 	if pname == "default" && !ok {
-		kconf.Profiles[pname] = &BuildConf{}
+		kconf.Profiles[pname] = &Profile{}
 		profile = kconf.Profiles[pname]
 		ok = true
 	} else if !ok {
@@ -80,29 +65,28 @@ func getkbuild(cmd *cobra.Command) (*kbuild.Kbuild, error) {
 		errFatal(fmt.Errorf("Profile %s not found", pname))
 	}
 
-	profile.BuildPath = getArg(cmd, "buildpath", profile.BuildPath).(string)
+	profile.name = pname
 
-	cwd, err := os.Getwd()
+	profile.SrcPath = getArg(cmd, "srcdir", profile.SrcPath).(string)
+	profile.SrcPath, err = expandHome(profile.SrcPath)
 	errFatal(err)
 
-	profile.SrcPath = getArg(cmd, "srcdir", cwd).(string)
 	profile.Arch = getArg(cmd, "arch", profile.Arch).(string)
 
-	kb, err := kbuild.NewKbuild(profile.SrcPath, profile.BuildPath)
-
-	kb.SetArch(profile.Arch)
-
-	kb.NumParallelJobs = getArg(cmd, "jobs", profile.NumJobs).(int)
-	errFatal(err)
-	if kb.NumParallelJobs < 1 {
-		kb.NumParallelJobs = 1
+	profile.NumJobs = getArg(cmd, "jobs", profile.NumJobs).(int)
+	if profile.NumJobs < 1 {
+		profile.NumJobs = 1
 	}
 
-	kb.BuildDir = getArg(cmd, "builddir", profile.BuildDir).(string)
+	profile.BuildDir = getArg(cmd, "builddir", profile.BuildDir).(string)
+	if profile.BuildDir != "" {
+		profile.BuildDir, err = expandHome(profile.BuildDir)
+		errFatal(err)
+	}
 
-	kb.Pull = getArg(cmd, "pull", profile.Pull).(bool)
+	profile.Pull = getArg(cmd, "pull", profile.Pull).(bool)
 
-	return kb, nil
+	return profile, nil
 }
 
 func errFatal(err error) {
@@ -115,15 +99,6 @@ func errLog(err error) {
 	if err != nil {
 		log.Println(err)
 	}
-}
-
-func nbdMount(image, mountpoint string) error {
-	// os.Command("")
-	return nil
-}
-
-func nbdUmount(mountpoint string) error {
-	return nil
 }
 
 // For all the following functions, related to getting arguments from the
@@ -173,4 +148,92 @@ func getArg(cmd *cobra.Command, arg string, defval interface{}) interface{} {
 	}
 
 	return defval
+}
+
+func GetHostArch() string {
+	var arch []byte
+	utsname := syscall.Utsname{}
+	syscall.Uname(&utsname)
+
+	for _, v := range utsname.Machine {
+		if v == 0 {
+			break
+		}
+		arch = append(arch, byte(v))
+	}
+
+	return string(arch)
+}
+
+func expandHome(path string) (string, error) {
+	if len(path) == 0 || path[0] != '~' {
+		return path, nil
+	}
+
+	usr, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(usr.HomeDir, path[1:]), nil
+}
+
+func pipetoStdout(p io.ReadCloser, c io.Writer) error {
+	buf := bufio.NewReader(p)
+	for {
+		line, err := buf.ReadBytes('\n')
+		if err != nil {
+			if errors.Is(io.EOF, err) {
+				err = nil
+			}
+			return err
+		}
+		c.Write([]byte(line))
+	}
+}
+
+func runCmd(cmdname string, args, env []string) error {
+	cmd := exec.Command(cmdname)
+
+	cmd.Args = append(cmd.Args, args...)
+	cmd.Env = append(cmd.Env, env...)
+
+	log.Println(cmd.String())
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	ch := make(chan string, 10)
+	defer close(ch)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		pipetoStdout(stdout, os.Stdout)
+		pipetoStdout(stderr, os.Stdout)
+		wg.Done()
+
+	}()
+
+	wg.Wait()
+
+	err = cmd.Wait()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
