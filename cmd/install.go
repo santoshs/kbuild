@@ -31,14 +31,15 @@ func installKernel(cmd *cobra.Command, args []string) {
 		profile.Environment["INSTALL_MOD_PATH"] = mpath
 	}
 
-	errFatal(profile.Build([]string{"modules_install"}))
+	errFatal(runCmd("sudo", []string{"-E", "--", "make", "modules_install"}, profile.getenv()))
+
 	if m, err := cmd.Flags().GetBool("modules-only"); err != nil {
 		errFatal(err)
 	} else if m {
 		return
 	}
 
-	errFatal(profile.Build([]string{"install"}))
+	errFatal(runCmd("sudo", []string{"-E", "--", "make", "install"}, profile.getenv()))
 }
 
 func init() {
