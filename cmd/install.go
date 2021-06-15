@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +33,17 @@ func installKernel(cmd *cobra.Command, args []string) {
 		profile.Environment["INSTALL_MOD_PATH"] = mpath
 	}
 
+	// If there are options module build directories are provided we will
+	// install those too.
+	for _, m := range profile.Modules {
+		if err := runCmd("sudo", []string{"-E", "--", "make",
+			fmt.Sprintf("M=%s", m), "modules_install"},
+			profile.getenv()); err != nil {
+			errFatal(err)
+		}
+	}
+
+	// This should be last, because this will do the depmod
 	errFatal(runCmd("sudo", []string{"-E", "--", "make", "modules_install"}, profile.getenv()))
 
 	if m, err := cmd.Flags().GetBool("modules-only"); err != nil {
