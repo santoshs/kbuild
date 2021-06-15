@@ -61,10 +61,9 @@ func (p *Profile) Setup() error {
 	if p.Environment == nil {
 		p.Environment = make(map[string]string)
 	}
-	// TODO make sure that the user specified environment variables are not
-	// overridden
-	p.Environment["ARCH"] = p.Arch
-	p.Environment["KBUILD_OUTPUT"] = p.BuildDir
+
+	p.Setenv("ARCH", p.Arch, false)
+	p.Setenv("KBUILD_OUTPUT", p.BuildDir, false)
 
 	return nil
 }
@@ -181,4 +180,21 @@ func (p *Profile) Build(build_args []string) error {
 	}
 
 	return nil
+}
+
+// Setenv sets the build environment variables with an option to not overwrite
+// existing environment variables.
+func (p *Profile) Setenv(key, val string, overwrite bool) {
+	if _, ok := p.Environment[key]; ok && !overwrite {
+		return
+	}
+
+	// we will also have to check the /real/ environment that is set before
+	// calling this program, and make sure we don't overwrite what the user
+	// has set.
+	if os.Getenv(key) != "" && !overwrite {
+		return
+	}
+
+	p.Environment[key] = val
 }
