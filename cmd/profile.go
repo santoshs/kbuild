@@ -105,14 +105,14 @@ func (p *Profile) getenv() []string {
 	return env
 }
 
-func (p *Profile) Config() error {
-	err := p.mkConfig()
-	if err != nil {
-		return err
+func (p *Profile) Config(skip_base bool) error {
+	if !skip_base {
+		if err := p.mkConfig(); err != nil {
+			return err
+		}
 	}
 
-	err = p.mergeConfig()
-	if err != nil {
+	if err := p.mergeConfig(); err != nil {
 		return err
 	}
 

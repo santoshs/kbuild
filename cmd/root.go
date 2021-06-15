@@ -31,7 +31,7 @@ func init() {
 		"Target architecture")
 	rootCmd.PersistentFlags().StringP("builddir", "o", "",
 		`Name of the build directory. Can also be set using
- KBUILD_BUILDDIR environment variable. (default: ~/.cache/kbuild/srcdir.branch.arch)`)
+KBUILD_BUILDDIR environment variable. (default: ~/.cache/kbuild/srcdir.branch.arch)`)
 	rootCmd.PersistentFlags().StringP("srcdir", "s", cwd,
 		"Path to the source directory, defaults to current directory")
 	rootCmd.PersistentFlags().Bool("pull", false,
@@ -43,7 +43,10 @@ func init() {
 config items can be overridden through the CLI arguments
 or environment variables`)
 	rootCmd.Flags().MarkHidden("dry-run")
-	rootCmd.Flags().BoolP("skip-config", "S", false, "Do not make config")
+	rootCmd.Flags().BoolP("skip-config", "S", false,
+		`Do not make config, skip merging configure fragments too
+if present in profile`)
+	rootCmd.Flags().BoolP("skip-base", "B", false, "Do not make defconfig")
 
 	rootCmd.AddCommand(pathCmd)
 	rootCmd.AddCommand(installCmd)
